@@ -1,0 +1,226 @@
+//Предметная область - Предприятие быстрого питания.
+ 
+#include "stdafx.h"
+#include <iostream>
+#include "menu.h"
+ 
+//Опишем класс списка заказов. Заказ, который
+//заказали первым, первым готовят. Принцип
+//"первым пришел - первым вышел"
+class orderStack {
+private:
+    menu **items;       //Массив с массивами блюд
+    int *qty;           //Кол-во наименований в заказе
+    int size;           //Текущий размер стека
+public:
+    //Конструктор
+    orderStack(int stack_size=0) {
+        size = stack_size;
+        items = new menu*[stack_size];
+        qty = new int[stack_size];
+        //По умолчанию каждый заказ пуст. qty везде равен нулю
+        for (int i=0; i<stack_size; i++) {
+            qty[i]=0;
+        }
+        return;
+    }
+ 
+    //Деструктор
+    ~orderStack() {
+        delete[] items;
+        delete[] qty;
+        return;
+    }
+ 
+    //Клиент делает заказ - добавляем его в стек (в конец)
+    void addOrder(menu ordered_items[], int ordered_qty) {
+        float price = 0;        //Общая стоимость
+        //Делаем массивы на 1 длиннее
+        menu **tmp_items = new menu*[size+1];
+        int *tmp_qty = new int[size+1];
+        //Копируем из старого массива в новый
+        for (int i=0; i<size; i++) {
+            tmp_items[i] = new menu[qty[i]];
+            for (int j=0; j<qty[i]; j++) {
+                tmp_items[i][j]=items[i][j];
+            }
+            tmp_qty[i] = qty[i];
+        }
+        //Записываем последний заказ
+        tmp_items[size] = new menu[ordered_qty];
+        tmp_qty[size] = ordered_qty;
+        for (int i=0; i<ordered_qty; i++) {
+            tmp_items[size][i] = ordered_items[i];
+        }
+        //Выводим сообщение
+        std::cout<<"[ORDER RECIEVED]\n";
+        for (int i=0; i<ordered_qty; i++) {
+            std::cout<<getName(ordered_items[i]);
+            //Расставим запятые между заказами, а в конце - точку
+            if (i<ordered_qty-1) {
+                std::cout<<", ";
+                //Не больше трех заказов в строке
+                if ((i+1)%3==0) {
+                    std::cout<<"\n";
+                }
+            } else {
+                std::cout<<".";
+            }
+            price+=getCost(ordered_items[i]);
+        }
+        std::cout<<"\n\n";
+        //Удаляем старые и перезаписываем
+        for (int i=0; i<size; i++) {
+            delete[] items[i];
+        }
+        delete[] items;
+        delete[] qty;
+        items = tmp_items;
+        qty = tmp_qty;
+        size++;
+        return;
+    }
+ 
+    //Заказ готов - выдаем его клиенту
+    void getOrder(float cashback=0) {
+        float price=0;      //Итоговая стоимость
+        //Массив блюд из выдаваемого заказа
+        menu *get_items = new menu[qty[0]];
+        int get_qty = qty[0];
+        for (int i=0; i<qty[0]; i++) {
+            get_items[i] = items[0][i];
+        }
+        //Копируем элементы в новые массивы, как в методе addOrder
+        menu **tmp_items = new menu*[size-1];
+        int *tmp_qty = new int[size-1];
+        //Копируем из старого массива в новый
+        for (int i=0; i<size-1; i++) {
+            tmp_items[i] = new menu[qty[i+1]];
+            for (int j=0; j<qty[i]; j++) {
+                tmp_items[i][j]=items[i+1][j];
+            }
+            tmp_qty[i] = qty[i+1];
+        }
+        //Выведем сообщение
+        std::cout<<"[ORDER IS READY]\n";
+        for (int i=0; i<get_qty; i++) {
+            std::cout<<getName(get_items[i])<<" - "<<getCost(get_items[i])<<"\n";
+            price+=getCost(get_items[i]);
+        }
+        std::cout<<"\nTotal price: "<<price<<"\n";
+        //Если у покупателя есть скидка, считаем еще и цену со скидкой
+        if (cashback>0) {
+            std::cout<<"Cashback is "<<cashback*100<<"%\n";
+            std::cout<<"Price with cashback: "<<price*(1-cashback)<<"\n";
+        }
+        std::cout<<"\n";
+        //Удаляем старые и перезаписываем
+        for (int i=0; i<size; i++) {
+            delete[] items[i];
+        }
+        delete[] items;
+        delete[] qty;
+        items = tmp_items;
+        qty = tmp_qty;
+        size--;
+        return;
+    }
+ 
+    //Перегруженный оператор "-" для отмены заказа
+    void operator-(int index) {
+        menu *cancelled_items = new menu[qty[index]];   //Удаляемый массив с блюдами
+        int cancelled_qty = qty[index];                 //Его длина
+        //Скопируем items[index] в cancelled_items[index]
+        for (int i=0; i<cancelled_qty; i++) {
+            cancelled_items[i] = items[index][i];
+        }
+        //Сдвинем влево элементы, начиная с index
+        for (int i=index; i<size-1; i++) {
+            delete items[i];
+            items[i] = new menu[qty[i+1]];
+            for (int j=0; j<qty[i+1]; i++) {
+                items[i][j] = items[i+1][j];
+            }
+            qty[i]=qty[i+1];
+        }
+        //Создадим новые массивы
+        menu **tmp_items = new menu*[size-1];
+        int *tmp_qty = new int[size-1];
+        for (int i=0; i<size-1; i++) {
+            tmp_items[i] = new menu[qty[i]];
+            for (int j=0; j<qty[i]; j++) {
+                tmp_items[i][j]=items[i][j];
+            }
+            tmp_qty[i] = qty[i];
+        }
+        //Выведем сообщение
+        std::cout<<"[ORDER CANCELLED]\n";
+        for (int i=0; i<cancelled_qty; i++) {
+            std::cout<<getName(cancelled_items[i]);
+            //Расставим запятые между заказами, а в конце - точку
+            if (i<cancelled_qty-1) {
+                std::cout<<", ";
+                //Не больше трех заказов в строке
+                if ((i+1)%3==0) {
+                    std::cout<<"\n";
+                }
+            } else {
+                std::cout<<".\n\n";
+            }
+        }
+        //Удаляем старые и перезаписываем
+        for (int i=0; i<size; i++) {
+            delete[] items[i];
+        }
+        delete[] items;
+        delete[] qty;
+        items = tmp_items;
+        qty = tmp_qty;
+        size--;
+        return;
+    }
+ 
+    //Перегруженный оператор "+" для добавления блюда к первому в очереди заказу
+    void operator+(menu newItem) {
+        //Делаем копию массива блюд на 1 длиннее и копируем туда старые блюда
+        menu *tmpItems = new menu[qty[0]+1];
+        for (int i=0; i<qty[0]; i++) {
+            tmpItems[i] = items[0][i];
+        }
+        //Добавляем новое
+        tmpItems[qty[0]] = newItem;
+        //Выводим сообщение
+        std::cout<<"[ORDER CHANGED]\n";
+        std::cout<<getName(newItem)<<" was added to last order\n\n";
+        //Удаляем старый массив и перезаписываем
+        delete[] items[0];
+        items[0] = tmpItems;
+        qty[0]++;
+        return;
+    }
+ 
+    //Еще одна перегрузка оператора "+" для добавления НЕСКОЛЬКИХ блюд (массивом)
+    void operator+(menu *newItem) {
+    }
+};
+ 
+void main ()
+{
+    orderStack myOStack;
+    menu foo[] = {HOT_CHICKEN_M, SNACK_POTATO_M, DRINK_BEER_ST};
+    menu bar[] = {HOT_FISHBURGER, SNACK_POTATO_S, DRINK_COLA};
+    menu qux[] = {HOT_HAMBURGER, HOT_CHICKEN_S, SNACK_ONION_RINGS, DRINK_JUICE};
+    //Тестируем наши методы
+    myOStack.addOrder(foo, 3);
+    myOStack.addOrder(bar, 3);
+    myOStack.addOrder(qux, 4);
+    //Пробуем отменить заказ
+    myOStack-2;
+    //Пробуем получить заказ со скидкой...
+    myOStack.getOrder(0.15);
+    //И без скидки
+    myOStack+SNACK_POTATO_S;
+    myOStack.getOrder();
+    system("pause");
+    return;
+}
